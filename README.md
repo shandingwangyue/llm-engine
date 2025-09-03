@@ -1,48 +1,48 @@
-# 🚀 llm-engine - Local Large Language Model Service Engine
+# 🚀 大模型本地服务引擎
 
-A high-performance local service engine for large language models, supporting various open-source models and providing OpenAI-compatible API interfaces with streaming output support.
+一个高性能的大模型本地服务引擎，支持多种开源大模型，提供OpenAI兼容的API接口和流式输出支持。
 
-## ✨ Features
+## ✨ 特性
 
-- **Multi-Model Support**: LLaMA, ChatGLM, Qwen, Gemma, and other open-source models
-- **Format Compatibility**: Supports GGUF, GGML, HuggingFace model formats
-- **OpenAI Compatible**: Fully compatible with OpenAI API standards, supports direct use of official SDK
-- **Streaming Output**: Supports SSE streaming protocol, fully compatible with OpenAI streaming interface
-- **High Performance**: Asynchronous architecture, memory mapping, intelligent cache optimization
-- **Production Ready**: Complete monitoring, logging, security, and deployment solutions
+- **多模型支持**: LLaMA、ChatGLM、Qwen、Gemma等开源大模型
+- **格式兼容**: 支持GGUF、GGML、HuggingFace多种模型格式
+- **OpenAI兼容**: 完全兼容OpenAI API标准，支持官方SDK直接使用
+- **流式输出**: 支持SSE流式协议，完全兼容OpenAI流式接口
+- **高性能**: 异步架构、内存映射、智能缓存优化
+- **生产就绪**: 监控、日志、安全、部署方案完善
 
-## 🏗️ Architecture Design
+## 🏗️ 架构设计
 
-### Core Components
-- **API Gateway Layer**: FastAPI async framework
-- **Model Management Layer**: Multi-model loading and lifecycle management
-- **Inference Service Layer**: Text generation and streaming output
-- **Cache Layer**: Request result caching and performance optimization
-- **Monitoring Layer**: Resource usage and performance monitoring
+### 核心组件
+- **API网关层**: FastAPI异步框架
+- **模型管理层**: 多模型加载和生命周期管理
+- **推理服务层**: 文本生成和流式输出
+- **缓存层**: 请求结果缓存和性能优化
+- **监控层**: 资源使用和性能监控
 
-### Technology Stack
-- **Web Framework**: FastAPI + Uvicorn
-- **Model Inference**: llama-cpp-python + transformers
-- **Cache**: Memory cache + Redis (optional)
-- **Monitoring**: Prometheus + Custom metrics
-- **Deployment**: Docker + Native deployment
+### 技术栈
+- **Web框架**: FastAPI + Uvicorn
+- **模型推理**: llama-cpp-python + transformers
+- **缓存**: 内存缓存 + Redis（可选）
+- **监控**: Prometheus + 自定义指标
+- **部署**: Docker + 原生部署
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### 1. Install Dependencies
+### 1. 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
-Copy the environment variable file:
+### 2. 配置环境
+复制环境变量文件：
 ```bash
 cp .env.example .env
 ```
-Edit the `.env` file to configure your settings.
+编辑 `.env` 文件配置您的设置。
 
-### 3. Prepare Models
-Place model files in the `models/` directory:
+### 3. 准备模型
+将模型文件放入 `models/` 目录：
 ```
 models/
 ├── qwen-7b-chat.gguf
@@ -50,62 +50,58 @@ models/
 └── llama-2-7b-chat.gguf
 ```
 
-### 4. Start Service
+### 4. 启动服务
 ```bash
 python run.py
 ```
 
-### 5. Access API
-- Documentation interface: http://localhost:8000/docs
-- OpenAI compatible interface: http://localhost:8000/v1
-- Health check: http://localhost:8000/api/v1/health
+### 5. 访问API
+- 文档界面: http://localhost:8000/docs
+- OpenAI兼容接口: http://localhost:8000/v1
+- 健康检查: http://localhost:8000/api/v1/health
 
-## 📋 API Interfaces
+## 📋 API接口
 
-### Custom Interfaces
-- `POST /api/v1/generate` - Text generation
-- `POST /api/v1/generate/stream` - Stream generation
-- `GET /api/v1/models` - Model list
-- `POST /api/v1/models/{model}/load` - Load model
+### 自定义接口
+- `POST /api/v1/generate` - 文本生成
+- `POST /api/v1/generate/stream` - 流式生成
+- `GET /api/v1/models` - 模型列表
+- `POST /api/v1/models/{model}/load` - 加载模型
 
-### OpenAI Compatible Interfaces
-- `POST /v1/chat/completions` - Chat completions
-- `POST /v1/completions` - Text completions
-- `GET /v1/models` - Model list
+### OpenAI兼容接口
+- `POST /v1/chat/completions` - 聊天补全
+- `POST /v1/completions` - 文本补全
+- `GET /v1/models` - 模型列表
 
-## 🔧 Configuration
+## 🔧 配置说明
 
-### Main Configuration Items
+### 主要配置项
 ```env
-# Server Configuration
+# 服务器配置
 HOST=0.0.0.0
 PORT=8000
 WORKERS=2
 
-# Model Configuration
+# 模型配置
 MODEL_DIR=./models
 DEFAULT_MODEL=qwen-7b-chat
 
-# Performance Configuration
+# 性能配置
 MAX_CACHE_SIZE=1000
 MAX_CONCURRENT_REQUESTS=20
 
-# Streaming Configuration
+# 流式配置
 STREAMING_ENABLED=true
 ```
-## Direct Execution
-### Download Code
-### Run
-python run.py
 
-## 🐳 Docker Deployment
+## 🐳 Docker部署
 
-### Build Image
+### 构建镜像
 ```bash
 docker build -t llm-service .
 ```
 
-### Run Container
+### 运行容器
 ```bash
 docker run -d \
   -p 8000:8000 \
@@ -121,47 +117,47 @@ docker run -d \
 docker-compose up -d
 ```
 
-## 📊 Performance Optimization
+## 📊 性能优化
 
-### Memory Optimization
-- Use 4bit/8bit model quantization
-- Memory mapping technology to reduce memory usage
-- Intelligent caching to reduce repeated calculations
+### 内存优化
+- 使用4bit/8bit模型量化
+- 内存映射技术减少内存占用
+- 智能缓存减少重复计算
 
-### Concurrency Optimization
-- Asynchronous request processing
-- Connection pool management
-- Request batching
+### 并发优化
+- 异步请求处理
+- 连接池管理
+- 请求批处理
 
-### Monitoring Metrics
-- Memory usage
-- Request latency
-- Concurrent connections
-- Cache hit rate
+### 监控指标
+- 内存使用率
+- 请求延迟
+- 并发连接数
+- 缓存命中率
 
-## 🔍 Usage Examples
+## 🔍 使用示例
 
-### Python Client
+### Python客户端
 ```python
 import openai
 
-# Configure to point to local service
+# 配置指向本地服务
 openai.api_base = "http://localhost:8000/v1"
 openai.api_key = "any-key"
 
-# Use OpenAI SDK
+# 使用OpenAI SDK
 response = openai.ChatCompletion.create(
     model="qwen-7b-chat",
-    messages=[{"role": "user", "content": "Please introduce artificial intelligence"}]
+    messages=[{"role": "user", "content": "请介绍人工智能"}]
 )
 print(response.choices[0].message.content)
 ```
 
-### JavaScript Client
+### JavaScript客户端
 ```javascript
-// Streaming call example
+// 流式调用示例
 const eventSource = new EventSource(
-  'http://localhost:8000/api/v1/generate/stream?prompt=hello&model=qwen-7b-chat'
+  'http://localhost:8000/api/v1/generate/stream?prompt=你好&model=qwen-7b-chat'
 );
 
 eventSource.onmessage = (event) => {
@@ -170,57 +166,57 @@ eventSource.onmessage = (event) => {
 };
 ```
 
-## 🛡️ Security Features
+## 🛡️ 安全特性
 
-- API key authentication
-- Request rate limiting
-- CORS support
-- Input validation and filtering
+- API密钥认证
+- 请求速率限制
+- CORS跨域支持
+- 输入验证和过滤
 
-## 📈 Monitoring and Operations
+## 📈 监控运维
 
-### Health Check
+### 健康检查
 ```bash
 curl http://localhost:8000/api/v1/health
 ```
 
-### Performance Monitoring
+### 性能监控
 ```bash
 curl http://localhost:8000/metrics
 ```
 
-### Log Viewing
-Log files are located in the `logs/` directory, including:
-- Application log (`app.log`)
-- Access log (`access.log`)
-- Error log (`error.log`)
+### 日志查看
+日志文件位于 `logs/` 目录，包含：
+- 应用日志 (`app.log`)
+- 访问日志 (`access.log`)
+- 错误日志 (`error.log`)
 
-## 🤝 Contribution Guide
+## 🤝 贡献指南
 
-1. Fork the project
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Create Pull Request
+1. Fork 项目
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
+5. 创建Pull Request
 
-## 📄 License
+## 📄 许可证
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-## 🆘 Technical Support
+## 🆘 技术支持
 
-- Submit Issue: [GitHub Issues](https://github.com/your-repo/issues)
-- Documentation: [Project Wiki](https://github.com/your-repo/wiki)
-- Discussions: [Discussions](https://github.com/your-repo/discussions)
+- 提交 Issue: [GitHub Issues](https://github.com/your-repo/issues)
+- 文档: [项目Wiki](https://github.com/your-repo/wiki)
+- 讨论: [Discussions](https://github.com/your-repo/discussions)
 
-## 🎯 Roadmap
+## 🎯 路线图
 
-- [ ] Multi-modal model support
-- [ ] Distributed deployment
-- [ ] Model fine-tuning interface
-- [ ] Advanced monitoring alerts
-- [ ] Web management interface
+- [ ] 多模态模型支持
+- [ ] 分布式部署
+- [ ] 模型微调接口
+- [ ] 高级监控告警
+- [ ] Web管理界面
 
 ---
 
-**Get Started**: Check out the [Quick Start](#-quick-start) section to begin!
+**开始使用**: 查看 [快速开始](#-快速开始) 部分立即体验！
