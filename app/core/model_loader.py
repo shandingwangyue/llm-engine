@@ -17,7 +17,7 @@ class ModelLoader:
     def __init__(self):
         self.supported_formats = ['.gguf', '.ggml', '.bin', '.safetensors', '.pt']
         self.loaded_models = {}
-    
+        self.gpu = True
     def load_model(self, model_path: str, **kwargs) -> Any:
         """
         加载模型
@@ -81,9 +81,10 @@ class ModelLoader:
             }
             
             # 如果有GPU，尝试使用GPU加速
-            if kwargs.get('n_gpu_layers', 0) > 0:
-                default_params['n_gpu_layers'] = kwargs['n_gpu_layers']
-            
+            if kwargs.get('n_gpu_layers', settings.n_gpu_layers) > 0 and self.gpu:
+                default_params['n_gpu_layers'] = kwargs.get('n_gpu_layers', settings.n_gpu_layers)
+                print(f"使用GPU加速: {  settings.n_gpu_layers} GPU层")
+                self.gpu = False
             logger.info(f"加载GGML模型: {model_path}")
             model = llama_cpp.Llama(**default_params)
             logger.info(f"GGML模型加载成功: {model_path}")

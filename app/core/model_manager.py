@@ -8,6 +8,7 @@ import threading
 from typing import Dict, Optional, Any, List
 from app.config import settings
 from app.core.model_loader import model_loader
+from app.core.memory_manager import memory_manager
 from app.core.utils import detect_model_type, format_bytes
 
 logger = logging.getLogger(__name__)
@@ -58,14 +59,22 @@ class ModelManager:
                 
                 # 记录模型信息
                 self.models[model_name] = model
+                model_type = detect_model_type(model_path)
                 self.model_info[model_name] = {
                     'path': model_path,
-                    'type': detect_model_type(model_path),
+                    'type': model_type,
                     'loaded': True,
                     'load_params': kwargs
                 }
                 
-                logger.info(f"模型加载成功: {model_name}")
+                # 注册模型内存使用
+                memory_usage = self._get_model_memory_usage_bytes(model, model_type)
+                if memory_usage > 0:
+                    memory_manager.register_model_memory(model_name, memory_usage)
+                    logger.info(f"模型加载成功: {model_name} - 内存使用: {self._format_bytes(memory_usage)}")
+                else:
+                    logger.info(f"模型加载成功: {model_name} - 内存使用: 未知")
+                
                 return True
                 
             except Exception as e:
@@ -136,6 +145,9 @@ class ModelManager:
                     # 从模型加载器卸载
                     success = model_loader.unload_model(model_name)
                     
+                    # 清理内存记录
+                    memory_manager.unregister_model_memory(model_name)
+                    
                     # 清理本地记录
                     del self.models[model_name]
                     del self.model_info[model_name]
@@ -169,39 +181,57 @@ class ModelManager:
                 }
             return result
     
-    def _get_model_memory_usage(self, model, model_type: str) -> str:
+    def _get_model_memory_usage_bytes(self, model, model_type: str) -> int:
         """
-        获取模型内存使用情况
-        
+        获取模型内存使用量（字节）
+
         Args:
             model: 模型对象
             model_type: 模型类型
-            
+
         Returns:
-            str: 内存使用情况描述
+            int: 内存使用量(bytes)
         """
         if model is None:
-            return "未知"
-        
+            return 0
+
         try:
             if model_type in ['gguf', 'ggml']:
                 # llama.cpp模型
                 if hasattr(model, 'model_size'):
-                    return format_bytes(model.model_size)
+                    return model.model_size
                 else:
-                    return "未知"
+                    # 估算：文件大小 * 1.2（考虑运行时开销）
+                    return 0
             else:
                 # HuggingFace模型
                 import torch
                 if hasattr(model, 'get_memory_footprint'):
-                    return format_bytes(model.get_memory_footprint())
+                    return model.get_memory_footprint()
                 else:
                     # 估算内存使用
-                    param_count = sum(p.numel() for p in model.parameters())
-                    memory_estimate = param_count * 4  # 假设float32
-                    return format_bytes(memory_estimate)
+                    if isinstance(model, dict) and 'model' in model:
+                        model_obj = model['model']
+                        param_count = sum(p.numel() for p in model_obj.parameters())
+                        memory_estimate = param_count * 4  # 假设float32
+                        return memory_estimate
+                    return 0
         except:
-            return "未知"
+            return 0
+
+    def _get_model_memory_usage(self, model, model_type: str) -> str:
+        """
+        获取模型内存使用情况
+
+        Args:
+            model: 模型对象
+            model_type: 模型类型
+
+        Returns:
+            str: 内存使用情况描述
+        """
+        bytes_usage = self._get_model_memory_usage_bytes(model, model_type)
+        return format_bytes(bytes_usage) if bytes_usage > 0 else "未知"
     
     def _get_model_size(self, model_path: str) -> str:
         """
@@ -298,6 +328,59 @@ class ModelManager:
             for model_name in list(self.models.keys()):
                 self.unload_model(model_name)
             logger.info("所有模型资源已清理")
+    
+    def handle_memory_pressure(self) -> List[str]:
+        """
+        处理内存压力，卸载不常用的模型
+        
+        Returns:
+            List[str]: 被卸载的模型名称列表
+        """
+        with self.lock:
+            needs_cleanup, models_to_clean = memory_manager.check_memory_pressure()
+            if not needs_cleanup:
+                return []
+            
+            unloaded_models = []
+            for model_name in models_to_clean:
+                if model_name in self.models:
+                    if self.unload_model(model_name):
+                        unloaded_models.append(model_name)
+                        logger.info(f"因内存压力卸载模型: {model_name}")
+            
+            return unloaded_models
+    
+    def get_model(self, model_name: str) -> Optional[Any]:
+        """
+        获取已加载的模型，并更新使用统计
+        
+        Args:
+            model_name: 模型名称
+            
+        Returns:
+            Optional[Any]: 模型对象或None
+        """
+        with self.lock:
+            model = self.models.get(model_name)
+            if model:
+                memory_manager.update_model_usage(model_name)
+            return model
+
+    def _format_bytes(self, size: int) -> str:
+        """
+        格式化字节大小为易读格式
+        
+        Args:
+            size: 字节大小
+            
+        Returns:
+            str: 格式化后的字符串
+        """
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024.0:
+                return f"{size:.2f} {unit}"
+            size /= 1024.0
+        return f"{size:.2f} PB"
 
 
 # 全局模型管理器实例

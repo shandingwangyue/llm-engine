@@ -27,7 +27,9 @@ def detect_model_type(model_path: str) -> str:
     # Gemma模型检测
     if any(keyword in model_name for keyword in ['gemma']):
         return 'gemma'
-    
+    # Gpt模型检测
+    if any(keyword in model_name for keyword in ['gpt']):
+        return 'gpt'
     # LLaMA模型检测
     if any(keyword in model_name for keyword in ['llama', 'alpaca', 'vicuna']):
         return 'llama'
