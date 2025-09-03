@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.model_manager import init_model_manager
-from app.routers import health, generate, models, openai
+from app.routers import health, generate, models, openai, memory
 
 # 配置日志
 logging.basicConfig(
@@ -40,6 +40,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(generate.router, prefix="/api/v1", tags=["generate"])
 app.include_router(models.router, prefix="/api/v1", tags=["models"])
+app.include_router(memory.router, prefix="/api/v1", tags=["memory"])
 app.include_router(openai.router, prefix="/v1", tags=["openai"])
 
 # 添加启动事件
