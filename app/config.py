@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     use_mlock: bool = Field(False, env="USE_MLOCK")
     n_threads: int = Field(4, env="N_THREADS")
     n_batch: int = Field(512, env="N_BATCH")
+    n_gpu_layers: int = Field(0, env="N_GPU_LAYERS")
     
     # 监控配置
     enable_monitoring: bool = Field(True, env="ENABLE_MONITORING")
@@ -119,6 +120,20 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
             "bos_token": "<bos>",
             "eos_token": "<eos>",
             "pad_token": "<pad>"
+        }
+    },
+     "gpt": {
+        "default_params": {
+            "n_ctx": settings.qwen_context_length,
+            "n_threads": settings.n_threads,
+            "n_batch": settings.n_batch,
+            "use_mmap": settings.use_mmap,
+            "use_mlock": settings.use_mlock,
+        },
+        "special_tokens": {
+            "bos_token": "<|startoftext|>",
+            "eos_token": "<|return|>",
+            "pad_token": "<|endoftext|>"
         }
     },
     "llama": {
