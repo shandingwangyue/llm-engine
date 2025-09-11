@@ -92,6 +92,9 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
     async def openai_stream_generator():
         """OpenAI流式响应生成器"""
         try:
+            import platform
+            is_linux = platform.system().lower() == 'linux'
+            
             # 执行流式生成
             async for token_data in inference_service.generate_stream(
                 request.model,
@@ -101,12 +104,18 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
             ):
                 if "error" in token_data:
                     # 错误处理
-                    yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
+                    if is_linux:
+                        yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
+                        import sys
+                        if hasattr(sys.stdout, 'flush'):
+                            sys.stdout.flush()
+                    else:
+                        yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
                     break
                 
                 if not token_data.get('finished', False):
                     # 正常token
-                    yield f"data: {json.dumps({
+                    chunk_data = {
                         'id': f"chatcmpl-{shortuuid.uuid()}",
                         'object': 'chat.completion.chunk',
                         'created': int(time.time()),
@@ -116,10 +125,17 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
                             'delta': {'content': token_data['token']},
                             'finish_reason': None
                         }]
-                    })}\n\n"
+                    }
+                    if is_linux:
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                        import sys
+                        if hasattr(sys.stdout, 'flush'):
+                            sys.stdout.flush()
+                    else:
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
                 else:
                     # 结束标志
-                    yield f"data: {json.dumps({
+                    chunk_data = {
                         'id': f"chatcmpl-{shortuuid.uuid()}",
                         'object': 'chat.completion.chunk',
                         'created': int(time.time()),
@@ -129,16 +145,50 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
                             'delta': {},
                             'finish_reason': 'stop'
                         }]
-                    })}\n\n"
-                    yield "data: [DONE]\n\n"
+                    }
+                    if is_linux:
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                        yield "data: [DONE]\n\n"
+                        import sys
+                        if hasattr(sys.stdout, 'flush'):
+                            sys.stdout.flush()
+                    else:
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                        yield "data: [DONE]\n\n"
                     
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            yield "data: [DONE]\n\n"
+            if is_linux:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                yield "data: [DONE]\n\n"
+                import sys
+                if hasattr(sys.stdout, 'flush'):
+                    sys.stdout.flush()
+            else:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                yield "data: [DONE]\n\n"
+    
+    # Linux特定的响应头优化
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    
+    # 在Linux环境下添加额外的优化头
+    import platform
+    if platform.system().lower() == 'linux':
+        headers.update({
+            "Transfer-Encoding": "chunked",
+            "X-Content-Type-Options": "nosniff",
+            "X-Accel-Buffering": "no",
+            "Proxy-Buffering": "off",
+            "Proxy-Cache": "off"
+        })
     
     return StreamingResponse(
         openai_stream_generator(),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers=headers
     )
 
 

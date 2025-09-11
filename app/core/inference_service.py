@@ -92,19 +92,31 @@ class InferenceService:
             
             # 执行流式推理
             if hasattr(model, 'create_completion'):
-                # GGML模型流式生成
-                # 注意：llama-cpp-python的create_completion是同步的，需要包装为异步
-                completion_generator = model.create_completion(prompt, stream=True, **kwargs)
+                # GGML模型流式生成 - 使用异步包装避免阻塞事件循环
+                # 在单独的线程中执行同步的create_completion调用
+                import asyncio
+                
+                def sync_create_completion():
+                    return model.create_completion(prompt, stream=True, **kwargs)
+                
+                # 在线程中执行同步调用
+                completion_generator = await asyncio.to_thread(sync_create_completion)
+                
+                # 异步迭代生成器
                 for token in completion_generator:
                     yield {
                         "token": token['choices'][0]['text'],
                         "finished": False
                     }
+                    # 添加小延迟，确保事件循环有机会处理其他任务
+                    await asyncio.sleep(0.001)
             else:
                 # 非流式模型的简化实现
                 result = await self.generate_text(model_name, prompt, **kwargs)
                 for char in result['text']:
                     yield {"token": char, "finished": False}
+                    # 添加小延迟，确保事件循环有机会处理其他任务
+                    await asyncio.sleep(0.001)
             
             # 结束标志
             yield {"token": "", "finished": True}

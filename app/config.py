@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     
     # 模型配置
     model_dir: str = Field("./models", env="MODEL_DIR")
-    default_model: str = Field("qwen-7b-chat", env="DEFAULT_MODEL")
+    default_model: str = Field("qwen3-8b-Q5_K_M", env="DEFAULT_MODEL")
     auto_load_models: bool = Field(True, env="AUTO_LOAD_MODELS")
     
     # 性能配置

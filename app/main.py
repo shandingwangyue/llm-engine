@@ -51,6 +51,26 @@ async def startup_event():
     logger.info(f"📊 配置信息: host={settings.host}, port={settings.port}")
     logger.info(f"📁 模型目录: {settings.model_dir}")
     
+    # 应用Linux优化配置
+    try:
+        import platform
+        if platform.system().lower() == 'linux':
+            logger.info("🐧 检测到Linux系统，应用优化配置...")
+            try:
+                from linux_optimization import apply_linux_optimizations, check_linux_performance
+                apply_linux_optimizations()
+                suggestions = check_linux_performance()
+                if suggestions:
+                    logger.info("💡 Linux性能优化建议:")
+                    for suggestion in suggestions:
+                        logger.info(f"   - {suggestion}")
+            except ImportError:
+                logger.warning("⚠️  Linux优化模块未找到，跳过优化配置")
+            except Exception as e:
+                logger.warning(f"⚠️  Linux优化配置失败: {e}")
+    except:
+        pass
+    
     # 初始化模型管理器
     try:
         init_model_manager()
