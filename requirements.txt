@@ -1,7 +1,7 @@
 # 核心依赖
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-llama-cpp-python==0.2.20
+fastapi==0.116.1
+uvicorn[standard]==0.34.0
+llama-cpp-python==0.3.16
 transformers==4.55.4
 torch==2.2.0
 sentencepiece==0.2.1
@@ -9,19 +9,19 @@ tokenizers==0.21.4
 
 # 工具和工具类
 pydantic>=2.7.0
-python-multipart==0.0.6
+python-multipart==0.0.20
 python-jose==3.3.0
 passlib==1.7.4
 bcrypt==4.0.1
 
 # 监控和性能
 psutil==5.9.5
-prometheus-client==0.17.1
-aiohttp==3.12.15
+prometheus-client==0.22.1
+aiohttp==3.10.11
 
 # 缓存和存储
 redis==5.0.1
-sqlalchemy==2.0.23
+sqlalchemy==2.0.43
 
 # 开发工具
 python-dotenv==1.0.0
