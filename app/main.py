@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.model_manager import init_model_manager
+from app.core.async_inference import async_inference_service
 from app.routers import health, generate, models, openai, memory
 
 # 配置日志
@@ -51,39 +52,25 @@ async def startup_event():
     logger.info(f"📊 配置信息: host={settings.host}, port={settings.port}")
     logger.info(f"📁 模型目录: {settings.model_dir}")
     
-    # 应用Linux优化配置
-    try:
-        import platform
-        if platform.system().lower() == 'linux':
-            logger.info("🐧 检测到Linux系统，应用优化配置...")
-            try:
-                from linux_optimization import apply_linux_optimizations, check_linux_performance
-                apply_linux_optimizations()
-                suggestions = check_linux_performance()
-                if suggestions:
-                    logger.info("💡 Linux性能优化建议:")
-                    for suggestion in suggestions:
-                        logger.info(f"   - {suggestion}")
-            except ImportError:
-                logger.warning("⚠️  Linux优化模块未找到，跳过优化配置")
-            except Exception as e:
-                logger.warning(f"⚠️  Linux优化配置失败: {e}")
-    except:
-        pass
-    
     # 初始化模型管理器
     try:
         init_model_manager()
         logger.info("✅ 模型管理器初始化成功")
+        
+        # 启动异步推理服务处理任务（在事件循环运行后）
+        await async_inference_service.start_processing()
+        logger.info("✅ 异步推理服务启动成功")
     except Exception as e:
-        logger.error(f"❌ 模型管理器初始化失败: {e}")
+        logger.error(f"❌ 启动失败: {e}")
         raise
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭事件"""
     logger.info("🛑 大模型服务引擎关闭中...")
-    # 清理工作会在atexit中自动处理
+    # 清理异步推理服务
+    await async_inference_service.shutdown()
+    # 其他清理工作会在atexit中自动处理
 
 # 根路径
 @app.get("/")

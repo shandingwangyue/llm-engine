@@ -28,7 +28,9 @@ def detect_model_type(model_path: str) -> str:
     if any(keyword in model_name for keyword in ['gemma']):
         return 'gemma'
     # Gpt模型检测
-    if any(keyword in model_name for keyword in ['gpt']):
+    if any(keyword in model_name for keyword in ['gpt-oss', 'gpt_oss']):
+        return 'gpt-oss'
+    elif any(keyword in model_name for keyword in ['gpt']):
         return 'gpt'
     # LLaMA模型检测
     if any(keyword in model_name for keyword in ['llama', 'alpaca', 'vicuna']):
@@ -69,7 +71,63 @@ def format_qwen_chat(messages: List[Dict[str, str]]) -> str:
     # 添加助手开始标记
     formatted += "<|im_start|>assistant\n"
     return formatted
+def format_gpt_chat(messages: List[Dict[str, str]]) -> str:
+    """
+    将消息列表转换为Gpt对话格式
+    
+    Args:
+        messages: 消息列表，每个消息包含role和content
+        
+    Returns:
+        str: 格式化后的Gpt对话文本
+    """
+    formatted = ""
+    for msg in messages:
+        role = msg.get('role', '')
+        content = msg.get('content', '')
+        
+        if role == 'system':
+            formatted += f"<|start|>system\n{content}<|end|>\n"
+        elif role == 'user':
+            formatted += f"<|start|>user<|message|>{content}<|end|>\n"
+        elif role == 'assistant':
+            formatted += f"<|start|>assistant\n{content}<|end|>\n"
+        else:
+            # 未知角色，默认作为用户消息处理
+            formatted += f"<|start|>user\n{content}<|end|>\n"
+    
+    # 添加助手开始标记
+    formatted += "<|start|>assistant\n"
+    return formatted
 
+def format_gpt_oss_chat(messages: List[Dict[str, str]]) -> str:
+    """
+    将消息列表转换为GPT-OSS对话格式
+    
+    Args:
+        messages: 消息列表，每个消息包含role和content
+        
+    Returns:
+        str: 格式化后的GPT-OSS对话文本
+    """
+    formatted = ""
+    for msg in messages:
+        role = msg.get('role', '')
+        content = msg.get('content', '')
+        
+        if role == 'system':
+            formatted += f"System: {content}\n\n"
+        elif role == 'user':
+            formatted += f"User: {content}\n\n"
+        elif role == 'assistant':
+            formatted += f"Assistant: {content}\n\n"
+        else:
+            # 未知角色，默认作为用户消息处理
+            formatted += f"User: {content}\n\n"
+    
+    # 添加助手开始标记
+    formatted += "Assistant: "
+    return formatted
 
 def format_gemma_chat(messages: List[Dict[str, str]]) -> str:
     """

@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models import GenerateRequest, GenerateResponse, StreamToken
-from app.core import inference_service
+from app.core.async_inference import async_inference_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["generate"])
@@ -29,7 +29,7 @@ async def generate_text(request: GenerateRequest):
             raise HTTPException(status_code=400, detail="temperature 必须在 0-2 之间")
         
         # 执行生成
-        result = await inference_service.generate_text(
+        result = await async_inference_service.generate_text(
             request.model,
             prompt=request.prompt,
             max_tokens=request.max_tokens,
@@ -62,24 +62,13 @@ async def generate_stream(request: GenerateRequest):
         async def event_generator():
             """事件生成器"""
             try:
-                import platform
-                is_linux = platform.system().lower() == 'linux'
-                
-                async for token_data in inference_service.generate_stream(
+                async for token_data in async_inference_service.generate_stream(
                     request.model,
                     prompt=request.prompt,
                     max_tokens=request.max_tokens,
                     temperature=request.temperature
                 ):
-                    # 在Linux环境下，立即刷新缓冲区
-                    if is_linux:
-                        yield f"data: {json.dumps(token_data)}\n\n"
-                        # 强制刷新缓冲区
-                        import sys
-                        if hasattr(sys.stdout, 'flush'):
-                            sys.stdout.flush()
-                    else:
-                        yield f"data: {json.dumps(token_data)}\n\n"
+                    yield f"data: {json.dumps(token_data)}\n\n"
                     
                     # 如果生成完成，退出循环
                     if token_data.get('finished', False):
@@ -89,28 +78,14 @@ async def generate_stream(request: GenerateRequest):
                 error_data = {"error": str(e), "finished": True}
                 yield f"data: {json.dumps(error_data)}\n\n"
         
-        # Linux特定的响应头优化
-        headers = {
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # 禁用Nginx缓冲
-        }
-        
-        # 在Linux环境下添加额外的优化头
-        import platform
-        if platform.system().lower() == 'linux':
-            headers.update({
-                "Transfer-Encoding": "chunked",
-                "X-Content-Type-Options": "nosniff",
-                "X-Accel-Buffering": "no",
-                "Proxy-Buffering": "off",
-                "Proxy-Cache": "off"
-            })
-        
         return StreamingResponse(
             event_generator(),
             media_type="text/event-stream",
-            headers=headers
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # 禁用Nginx缓冲
+            }
         )
         
     except HTTPException:
@@ -133,7 +108,7 @@ async def batch_generate(requests: list[GenerateRequest]):
         results = []
         for i, request in enumerate(requests):
             try:
-                result = await inference_service.generate_text(
+                result = await async_inference_service.generate_text(
                     request.model,
                     prompt=request.prompt,
                     max_tokens=request.max_tokens,
@@ -161,7 +136,7 @@ async def batch_generate(requests: list[GenerateRequest]):
 async def get_generate_stats():
     """获取生成统计信息"""
     try:
-        stats = inference_service.get_stats()
+        stats = async_inference_service.get_stats()
         return {
             "status": "success",
             "stats": stats
@@ -179,7 +154,7 @@ async def test_generate():
         from app.config import settings
         
         test_prompt = "请用中文介绍一下你自己"
-        result = await inference_service.generate_text(
+        result = await async_inference_service.generate_text(
             settings.default_model,
             prompt=test_prompt,
             max_tokens=100,

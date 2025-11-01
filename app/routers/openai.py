@@ -13,7 +13,8 @@ from app.models import (
     ChatCompletionRequest, ChatCompletionResponse, ChatCompletionUsage,
     CompletionRequest, CompletionResponse, ChatMessage
 )
-from app.core import inference_service, format_qwen_chat, format_gemma_chat
+from app.core import format_qwen_chat, format_gemma_chat, format_gpt_chat, format_gpt_oss_chat
+from app.core.async_inference import async_inference_service
 from app.core.model_manager import model_manager
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ async def _handle_non_stream_chat(request: ChatCompletionRequest) -> ChatComplet
     prompt = _format_chat_messages(request.model, request.messages)
     
     # 执行生成
-    result = await inference_service.generate_text(
+    result = await async_inference_service.generate_text(
         request.model,
         prompt=prompt,
         max_tokens=request.max_tokens,
@@ -92,11 +93,8 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
     async def openai_stream_generator():
         """OpenAI流式响应生成器"""
         try:
-            import platform
-            is_linux = platform.system().lower() == 'linux'
-            
             # 执行流式生成
-            async for token_data in inference_service.generate_stream(
+            async for token_data in async_inference_service.generate_stream(
                 request.model,
                 prompt=prompt,
                 max_tokens=request.max_tokens,
@@ -104,18 +102,12 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
             ):
                 if "error" in token_data:
                     # 错误处理
-                    if is_linux:
-                        yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
-                        import sys
-                        if hasattr(sys.stdout, 'flush'):
-                            sys.stdout.flush()
-                    else:
-                        yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
+                    yield f"data: {json.dumps({'error': token_data['error']})}\n\n"
                     break
                 
                 if not token_data.get('finished', False):
                     # 正常token
-                    chunk_data = {
+                    yield f"data: {json.dumps({
                         'id': f"chatcmpl-{shortuuid.uuid()}",
                         'object': 'chat.completion.chunk',
                         'created': int(time.time()),
@@ -125,17 +117,10 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
                             'delta': {'content': token_data['token']},
                             'finish_reason': None
                         }]
-                    }
-                    if is_linux:
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                        import sys
-                        if hasattr(sys.stdout, 'flush'):
-                            sys.stdout.flush()
-                    else:
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                    })}\n\n"
                 else:
                     # 结束标志
-                    chunk_data = {
+                    yield f"data: {json.dumps({
                         'id': f"chatcmpl-{shortuuid.uuid()}",
                         'object': 'chat.completion.chunk',
                         'created': int(time.time()),
@@ -145,50 +130,16 @@ async def _handle_stream_chat(request: ChatCompletionRequest) -> StreamingRespon
                             'delta': {},
                             'finish_reason': 'stop'
                         }]
-                    }
-                    if is_linux:
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                        yield "data: [DONE]\n\n"
-                        import sys
-                        if hasattr(sys.stdout, 'flush'):
-                            sys.stdout.flush()
-                    else:
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                        yield "data: [DONE]\n\n"
+                    })}\n\n"
+                    yield "data: [DONE]\n\n"
                     
         except Exception as e:
-            if is_linux:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-                import sys
-                if hasattr(sys.stdout, 'flush'):
-                    sys.stdout.flush()
-            else:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-    
-    # Linux特定的响应头优化
-    headers = {
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no"
-    }
-    
-    # 在Linux环境下添加额外的优化头
-    import platform
-    if platform.system().lower() == 'linux':
-        headers.update({
-            "Transfer-Encoding": "chunked",
-            "X-Content-Type-Options": "nosniff",
-            "X-Accel-Buffering": "no",
-            "Proxy-Buffering": "off",
-            "Proxy-Cache": "off"
-        })
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
     
     return StreamingResponse(
         openai_stream_generator(),
-        media_type="text/event-stream",
-        headers=headers
+        media_type="text/event-stream"
     )
 
 
@@ -211,7 +162,7 @@ async def completions(request: CompletionRequest):
             raise HTTPException(status_code=404, detail=f"模型未加载: {request.model}")
         
         # 执行生成
-        result = await inference_service.generate_text(
+        result = await async_inference_service.generate_text(
             request.model,
             prompt=request.prompt,
             max_tokens=request.max_tokens,
@@ -299,10 +250,14 @@ def _format_chat_messages(model_name: str, messages: list[ChatMessage]) -> str:
     messages_dict = [msg.dict() for msg in messages]
     
     # 根据模型类型选择格式化方式
-    if "qwen" in model_name.lower():
+    if "gpt-oss" in model_name.lower():
+        return format_gpt_oss_chat(messages_dict)
+    elif "qwen" in model_name.lower():
         return format_qwen_chat(messages_dict)
     elif "gemma" in model_name.lower():
         return format_gemma_chat(messages_dict)
+    elif "gpt" in model_name.lower():
+        return format_gpt_chat(messages_dict)
     else:
         # 默认格式：简单拼接
         formatted = ""
